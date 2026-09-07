@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FOCUS//MODE — Quarterly Exam Comeback</title>
+<meta name="description" content="A focused daily study system for quarterly exam preparation.">
+
+<!-- Fonts: Inter for interface text, JetBrains Mono for numeric readouts (timer, stats, countdown) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ DESKTOP SIDEBAR ============ -->
+  <aside class="sidebar" aria-label="Primary navigation">
+    <div class="sidebar-brand">
+      <span class="brand-mark">FOCUS<span class="brand-slash">//</span>MODE</span>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <button class="nav-item" data-route="home">
+        <span class="nav-icon" data-icon="home"></span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button class="nav-item" data-route="planner">
+        <span class="nav-icon" data-icon="planner"></span>
+        <span class="nav-label">Planner</span>
+      </button>
+      <button class="nav-item" data-route="subjects">
+        <span class="nav-icon" data-icon="subjects"></span>
+        <span class="nav-label">Subjects</span>
+      </button>
+      <button class="nav-item" data-route="analytics">
+        <span class="nav-icon" data-icon="analytics"></span>
+        <span class="nav-label">Analytics</span>
+      </button>
+      <button class="nav-item" data-route="settings">
+        <span class="nav-icon" data-icon="settings"></span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-streak" id="sidebar-streak">
+        <span class="streak-flame">🔥</span>
+        <span id="sidebar-streak-value">0</span>
+        <span class="sidebar-streak-label">day streak</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <main id="view-root" class="view-root" tabindex="-1">
+    <!-- Rendered by script.js based on current route -->
+  </main>
+
+  <!-- ============ MOBILE BOTTOM NAV ============ -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Primary navigation">
+    <button class="bottom-nav-item" data-route="home">
+      <span class="nav-icon" data-icon="home"></span>
+      <span class="bottom-nav-label">Home</span>
+    </button>
+    <button class="bottom-nav-item" data-route="planner">
+      <span class="nav-icon" data-icon="planner"></span>
+      <span class="bottom-nav-label">Planner</span>
+    </button>
+    <button class="bottom-nav-item" data-route="subjects">
+      <span class="nav-icon" data-icon="subjects"></span>
+      <span class="bottom-nav-label">Subjects</span>
+    </button>
+    <button class="bottom-nav-item" data-route="analytics">
+      <span class="nav-icon" data-icon="analytics"></span>
+      <span class="bottom-nav-label">Analytics</span>
+    </button>
+    <button class="bottom-nav-item" data-route="settings">
+      <span class="nav-icon" data-icon="settings"></span>
+      <span class="bottom-nav-label">Settings</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ============ FOCUS TIMER OVERLAY (full-screen, one thing at a time) ============ -->
+<div id="timer-overlay" class="timer-overlay" hidden>
+  <div class="timer-panel">
+
+    <div class="timer-idle-state" id="timer-idle-state">
+      <p class="timer-eyebrow">Set up your session</p>
+      <h2 class="timer-subject" id="timer-setup-subject">Subject</h2>
+      <p class="timer-topic" id="timer-setup-topic">Topic</p>
+
+      <div class="duration-picker" id="duration-picker">
+        <button class="duration-chip" data-duration="25">25 min</button>
+        <button class="duration-chip" data-duration="50">50 min</button>
+        <button class="duration-chip" data-duration="90">90 min</button>
+        <div class="duration-custom">
+          <input type="number" id="custom-duration-input" min="1" max="240" placeholder="Custom">
+          <span class="duration-custom-suffix">min</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="timer-begin-btn">Start Focus</button>
+      <button class="btn btn-ghost btn-block" id="timer-cancel-setup-btn">Cancel</button>
+    </div>
+
+    <div class="timer-run-state" id="timer-run-state" hidden>
+      <p class="timer-eyebrow" id="timer-run-eyebrow">In focus</p>
+      <div class="timer-display" id="timer-display">50:00</div>
+      <h2 class="timer-subject" id="timer-run-subject">Subject</h2>
+      <p class="timer-topic" id="timer-run-topic">Topic</p>
+
+      <div class="timer-ring-track">
+        <div class="timer-ring-fill" id="timer-ring-fill"></div>
+      </div>
+
+      <div class="timer-controls">
+        <button class="btn btn-secondary" id="timer-pause-btn">Pause</button>
+        <button class="btn btn-ghost" id="timer-end-btn">End Session</button>
+      </div>
+    </div>
+
+    <div class="timer-complete-state" id="timer-complete-state" hidden>
+      <div class="complete-check" aria-hidden="true">✓</div>
+      <p class="timer-eyebrow">Session complete</p>
+      <h2 class="complete-headline" id="complete-headline">50 minutes added</h2>
+      <p class="complete-subline" id="complete-subline">to Accountancy</p>
+      <button class="btn btn-primary btn-block" id="timer-done-btn">Done</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ GENERIC MODAL ROOT (add/edit forms, confirmations) ============ -->
+<div id="modal-root" class="modal-root" hidden>
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+  <div class="modal-box" id="modal-box" role="dialog" aria-modal="true">
+    <!-- injected by script.js -->
+  </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
