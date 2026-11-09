@@ -30,3 +30,7 @@ drop policy if exists "Users leave their rooms" on public.room_members;
 create policy "Users leave their rooms" on public.room_members for delete to authenticated using(user_id=auth.uid());
 grant select,insert,update on public.study_rooms to authenticated;
 grant select,insert,delete on public.room_members to authenticated;
+
+drop policy if exists "Users refresh their own membership" on public.room_members;
+create policy "Users refresh their own membership" on public.room_members for update to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
+grant update on public.room_members to authenticated;
