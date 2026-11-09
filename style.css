@@ -1,3 +1,6 @@
+/* Respect the HTML hidden attribute, including elements with explicit display styles. */
+[hidden] { display: none !important; }
+
 /* =========================================================================
    FOCUS//MODE — STYLE SYSTEM
    A dark, single-accent, premium productivity aesthetic.
