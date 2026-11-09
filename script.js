@@ -327,6 +327,7 @@
   const routes = {
     home: renderHome,
     planner: renderPlanner,
+    music: renderMusic,
     subjects: renderSubjectsList,
     analytics: renderAnalytics,
     settings: renderSettings,
@@ -417,6 +418,137 @@
   /* ======================================================================
      7. HOME PAGE
      ====================================================================== */
+  /* ======================================================================
+     MUSIC — SPOTIFY PLAYLISTS
+     Playlists are embedded from Spotify and saved locally on this device.
+     ====================================================================== */
+  function renderMusic() {
+    const storageKey = "focusmode_music_playlists_v1";
+    let playlists = [];
+    try {
+      playlists = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      if (!Array.isArray(playlists)) playlists = [];
+    } catch (_) {
+      playlists = [];
+    }
+
+    const el = document.createElement("div");
+    el.innerHTML = `
+      <div class="page-header">
+        <p class="page-eyebrow">Your soundtrack</p>
+        <h1 class="page-title">Study music</h1>
+        <p class="page-description">Add a Spotify playlist and keep your study soundtrack in one place.</p>
+      </div>
+      <section class="music-hero glass-panel">
+        <div class="music-hero-orb" aria-hidden="true"></div>
+        <p class="music-kicker">FOCUS//MODE AUDIO</p>
+        <h2>Find your focus frequency.</h2>
+        <p>Lo-fi, ambient sounds, instrumentals or whatever helps you concentrate.</p>
+        <form class="music-add-form" id="music-add-form">
+          <label class="sr-only" for="spotify-playlist-url">Spotify playlist URL</label>
+          <input id="spotify-playlist-url" type="url" placeholder="Paste a Spotify playlist link…" autocomplete="url" required>
+          <button class="btn btn-primary" type="submit">Add playlist</button>
+        </form>
+        <p class="music-note">Use a public Spotify playlist link. Playback is provided by Spotify.</p>
+      </section>
+      <div class="music-section-heading">
+        <div><p class="page-eyebrow">Your collection</p><h2 class="section-title">Saved playlists</h2></div>
+        <span class="music-count" id="music-count">0 playlists</span>
+      </div>
+      <div class="music-playlist-list" id="music-playlist-list"></div>
+      <section class="music-discover glass-panel">
+        <div><p class="page-eyebrow">Need something new?</p><h2 class="section-title">Discover a soundtrack</h2><p>Explore study mixes on Spotify and add your favourites above.</p></div>
+        <div class="music-discover-links">
+          <a href="https://open.spotify.com/search/lofi%20study" target="_blank" rel="noopener noreferrer">Lo-fi study ↗</a>
+          <a href="https://open.spotify.com/search/ambient%20focus" target="_blank" rel="noopener noreferrer">Ambient focus ↗</a>
+          <a href="https://open.spotify.com/search/classical%20study" target="_blank" rel="noopener noreferrer">Classical study ↗</a>
+        </div>
+      </section>
+    `;
+    viewRoot.appendChild(el);
+
+    const list = el.querySelector("#music-playlist-list");
+    const count = el.querySelector("#music-count");
+
+    function savePlaylists() {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(playlists));
+      } catch (_) {
+        showToast("Could not save playlists on this device.");
+      }
+    }
+
+    function renderPlaylists() {
+      count.textContent = playlists.length + (playlists.length === 1 ? " playlist" : " playlists");
+      list.innerHTML = "";
+      if (!playlists.length) {
+        list.innerHTML = '<div class="empty-state music-empty"><p>Your playlist collection is empty.</p><span>Add a public Spotify playlist link to get started.</span></div>';
+        return;
+      }
+      playlists.forEach((playlist, index) => {
+        const card = document.createElement("article");
+        card.className = "music-playlist-card glass-panel";
+        const heading = document.createElement("div");
+        heading.className = "music-playlist-heading";
+        const title = document.createElement("h3");
+        title.textContent = playlist.name || ("Playlist " + (index + 1));
+        const remove = document.createElement("button");
+        remove.className = "icon-btn";
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Remove " + title.textContent);
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          playlists = playlists.filter((item) => item.id !== playlist.id);
+          savePlaylists();
+          renderPlaylists();
+          showToast("Playlist removed.");
+        });
+        heading.append(title, remove);
+        const frame = document.createElement("iframe");
+        frame.title = "Spotify playlist: " + title.textContent;
+        frame.src = "https://open.spotify.com/embed/playlist/" + encodeURIComponent(playlist.id) + "?utm_source=generator&theme=0";
+        frame.width = "100%";
+        frame.height = "152";
+        frame.loading = "lazy";
+        frame.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+        frame.setAttribute("allowfullscreen", "");
+        frame.setAttribute("frameborder", "0");
+        card.append(heading, frame);
+        list.appendChild(card);
+      });
+    }
+
+    el.querySelector("#music-add-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = el.querySelector("#spotify-playlist-url");
+      let parsed;
+      try {
+        parsed = new URL(input.value.trim());
+      } catch (_) {
+        showToast("Paste a valid Spotify playlist link.");
+        return;
+      }
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      const playlistIndex = parts.indexOf("playlist");
+      const id = playlistIndex >= 0 ? parts[playlistIndex + 1] : "";
+      if (parsed.hostname !== "open.spotify.com" || !id || !/^[A-Za-z0-9]+$/.test(id)) {
+        showToast("That link doesn't look like a Spotify playlist.");
+        return;
+      }
+      if (playlists.some((item) => item.id === id)) {
+        showToast("That playlist is already saved.");
+        return;
+      }
+      playlists.unshift({ id, name: "Spotify playlist" });
+      savePlaylists();
+      input.value = "";
+      renderPlaylists();
+      showToast("Playlist added.");
+    });
+
+    renderPlaylists();
+  }
+
   function renderHome() {
     const today = todayISO();
     const daysLeft = STATE.examDate ? daysBetween(today, STATE.examDate) : null;
