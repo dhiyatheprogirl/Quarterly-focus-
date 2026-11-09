@@ -345,8 +345,14 @@
     const hash = currentRoute();
     const [base, param] = hash.split("/");
 
-    // These routes belong to upgrade.js. Let that router render them.
-    if (["tasks", "music", "rooms"].includes(base)) return;
+    // Delegate workspace routes to the upgrade module so only one router
+    // controls the main view.
+    if (["tasks", "music", "rooms"].includes(base)) {
+      if (typeof window.FOCUS_UPGRADE_RENDER_ROUTE === "function") {
+        window.FOCUS_UPGRADE_RENDER_ROUTE();
+      }
+      return;
+    }
 
     document.querySelectorAll(".nav-item, .bottom-nav-item").forEach((el) => {
       el.classList.toggle("active", el.dataset.route === base);
