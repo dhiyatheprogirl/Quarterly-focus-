@@ -56,11 +56,47 @@
     document.getElementById("music-form").addEventListener("submit",e=>{e.preventDefault();const name=document.getElementById("music-name").value.trim(),embed=spotifyEmbed(document.getElementById("music-url").value.trim());if(!embed){notify("Use a valid open.spotify.com playlist, album or track link.");return;}const list=getMusic();list.unshift({id:Date.now().toString(36),name,embed});write(MUSIC_KEY,list);renderMusic();notify("Added to your music library.");});
     document.querySelectorAll("[data-music-delete]").forEach(el=>el.addEventListener("click",()=>{write(MUSIC_KEY,getMusic().filter(m=>m.id!==el.dataset.musicDelete));renderMusic();notify("Removed from your music library.");}));
   }
+  let sb=null, currentUser=null, roomChannel=null;
+  function supabaseClient(){if(sb)return sb;if(!window.supabase||!window.FOCUS_SUPABASE_CONFIG)return null;sb=window.supabase.createClient(window.FOCUS_SUPABASE_CONFIG.url,window.FOCUS_SUPABASE_CONFIG.key);return sb;}
+  async function loadRooms(){
+    const client=supabaseClient(),host=document.getElementById("room-list");if(!client||!host)return;
+    const {data,error}=await client.from("study_rooms").select("id,name,subject,created_at").eq("is_public",true).order("created_at",{ascending:false}).limit(30);
+    if(error){host.innerHTML='<p class="upgrade-muted">Could not load rooms. Check that the database setup SQL has been run.</p>';return;}
+    host.innerHTML=data.length?data.map(r=>'<article class="upgrade-task"><div class="upgrade-task-main"><strong>'+safe(r.name)+'</strong><div class="upgrade-task-meta">'+safe(r.subject||"General")+'</div></div><button class="btn btn-secondary" data-join-room="'+safe(r.id)+'">Join</button></article>').join(""):'<p class="upgrade-muted">No public rooms yet. Create the first one.</p>';
+    host.querySelectorAll("[data-join-room]").forEach(b=>b.addEventListener("click",()=>joinRoom(b.dataset.joinRoom)));
+  }
+  async function joinRoom(id){
+    const client=supabaseClient();if(!client||!currentUser)return;
+    const {error}=await client.from("room_members").upsert({room_id:id,user_id:currentUser.id},{onConflict:"room_id,user_id"});
+    if(error){notify("Could not join this room. "+error.message);return;}
+    if(roomChannel){await client.removeChannel(roomChannel);roomChannel=null;}
+    roomChannel=client.channel("study-room-"+id,{config:{presence:{key:currentUser.id}}});
+    roomChannel.on("presence",{event:"sync"},()=>{const node=document.getElementById("room-presence");if(node)node.textContent=Object.keys(roomChannel.presenceState()).length+" studying now";});
+    roomChannel.subscribe(async status=>{if(status==="SUBSCRIBED")await roomChannel.track({online_at:new Date().toISOString()});});
+    const {data}=await client.from("study_rooms").select("name").eq("id",id).single();
+    const title=document.getElementById("active-room-title");if(title)title.textContent=data?data.name:"Study room";
+    const presence=document.getElementById("room-presence");if(presence)presence.textContent="Connecting…";
+    notify("Joined study room.");
+  }
   function renderRooms(){
-    root.innerHTML='<section class="upgrade-page">'+heading("STUDY TOGETHER","Global study rooms","A shared space for focused work, wherever students are.")+
-      '<div class="room-banner"><span class="upgrade-chip">COMMUNITY · IN DEVELOPMENT</span><h2>Study alongside people around the world.</h2><p class="upgrade-muted">Live rooms, accounts and synchronized timers need a secure shared backend before they can work across different devices.</p></div>'+
-      '<div class="upgrade-grid" style="margin-top:18px"><div class="upgrade-card"><div class="room-feature"><div class="room-feature-icon">◷</div><div><h2>Shared focus sessions</h2><p class="upgrade-muted">Start a Pomodoro with other members and stay in sync.</p></div></div><div class="room-feature"><div class="room-feature-icon">◎</div><div><h2>Public and private rooms</h2><p class="upgrade-muted">Join open study spaces or create invite-only rooms.</p></div></div><div class="room-feature"><div class="room-feature-icon">✦</div><div><h2>Community safeguards</h2><p class="upgrade-muted">Profiles, reporting, moderation and privacy controls will be part of the launch design.</p></div></div></div>'+
-      '<div class="upgrade-card"><h2>What comes next</h2><p class="upgrade-muted" style="margin:10px 0 16px">Next phase: connect Supabase for authentication, room presence and realtime updates. This section stays marked as a preview until those features are connected and tested.</p><span class="upgrade-chip">No fake online users</span></div></div></section>';
+    const client=supabaseClient();
+    root.innerHTML='<section class="upgrade-page">'+heading("STUDY TOGETHER","Global study rooms","Focused sessions with other students. Keep personal details private.")+
+      '<div class="upgrade-card" style="margin-bottom:18px"><div id="auth-area"><h2>Sign in to join the community</h2><p class="upgrade-muted">Use an email you can access. Do not use your full name or share personal contact details in a room.</p><form class="upgrade-form" id="auth-form"><input class="upgrade-input" id="auth-email" type="email" autocomplete="email" required placeholder="Email address"><input class="upgrade-input" id="auth-password" type="password" autocomplete="current-password" minlength="8" required placeholder="Password (at least 8 characters)"><button class="btn btn-primary" type="submit">Sign in</button><button class="btn btn-secondary" type="button" id="signup-btn">Create account</button></form><p class="upgrade-muted" id="auth-message" aria-live="polite"></p></div></div>'+
+      '<div class="upgrade-grid"><div class="upgrade-card"><h2>Create a public study room</h2><form class="upgrade-form" id="room-form"><input class="upgrade-input" id="room-name" maxlength="50" required placeholder="Room name"><select class="upgrade-select" id="room-subject"><option>General</option><option>Accountancy</option><option>Business Studies</option><option>Economics</option><option>Mathematics</option><option>Science</option><option>Languages</option><option>Computer Science</option></select><button class="btn btn-primary" type="submit">Create room</button></form><p class="upgrade-muted">Public room names only. No chat or direct messages in this first version.</p></div><div class="upgrade-card"><h2>Available rooms</h2><div id="room-list"><p class="upgrade-muted">Sign in to load public rooms.</p></div></div></div>'+
+      '<div class="upgrade-card" style="margin-top:18px"><span class="upgrade-chip">LIVE PRESENCE</span><h2 id="active-room-title">No room joined</h2><p class="upgrade-muted" id="room-presence">Join a room to see its live study presence.</p></div></section>';
+    if(!client){document.getElementById("auth-message").textContent="Supabase configuration is missing. Check supabase-config.js.";return;}
+    function updateAuthArea(){
+      const area=document.getElementById("auth-area");if(!area)return;
+      if(currentUser){area.innerHTML='<h2>Signed in</h2><p class="upgrade-muted">Your account is active. Your email is not shown to other room members.</p><button class="btn btn-secondary" id="signout-btn" type="button">Sign out</button>';document.getElementById("signout-btn").onclick=async()=>{await client.auth.signOut();};loadRooms();}
+      else{
+        area.innerHTML='<h2>Sign in to join the community</h2><p class="upgrade-muted">Use an email you can access. Do not use your full name or share personal contact details in a room.</p><form class="upgrade-form" id="auth-form"><input class="upgrade-input" id="auth-email" type="email" autocomplete="email" required placeholder="Email address"><input class="upgrade-input" id="auth-password" type="password" autocomplete="current-password" minlength="8" required placeholder="Password (at least 8 characters)"><button class="btn btn-primary" type="submit">Sign in</button><button class="btn btn-secondary" type="button" id="signup-btn">Create account</button></form><p class="upgrade-muted" id="auth-message" aria-live="polite"></p>';
+        document.getElementById("auth-form").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("auth-email").value.trim(),password=document.getElementById("auth-password").value;const {error}=await client.auth.signInWithPassword({email,password});document.getElementById("auth-message").textContent=error?error.message:"Signed in.";};
+        document.getElementById("signup-btn").onclick=async()=>{const email=document.getElementById("auth-email").value.trim(),password=document.getElementById("auth-password").value;if(!email||password.length<8){document.getElementById("auth-message").textContent="Enter an email and a password with at least 8 characters.";return;}const {error}=await client.auth.signUp({email,password});document.getElementById("auth-message").textContent=error?error.message:"Check your email for the confirmation link.";};
+      }
+    }
+    client.auth.getSession().then(({data})=>{currentUser=data.session?.user||null;updateAuthArea();});
+    client.auth.onAuthStateChange((_event,session)=>{currentUser=session?.user||null;updateAuthArea();});
+    document.getElementById("room-form").onsubmit=async e=>{e.preventDefault();if(!currentUser){notify("Sign in first.");return;}const name=document.getElementById("room-name").value.trim(),subject=document.getElementById("room-subject").value;const {data,error}=await client.from("study_rooms").insert({name,subject,created_by:currentUser.id,is_public:true}).select("id").single();if(error){notify("Could not create room: "+error.message);return;}await loadRooms();await joinRoom(data.id);};
   }
   function renderRoute(){
     const route=(location.hash.replace(/^#/,"").split("/")[0]||"home");if(!extraRoutes.includes(route))return;
