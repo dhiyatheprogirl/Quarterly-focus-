@@ -102,7 +102,8 @@
     const route=(location.hash.replace(/^#/,"").split("/")[0]||"home");if(!extraRoutes.includes(route))return;
     setActive(route);if(route==="tasks")renderTasks();if(route==="music")renderMusic();if(route==="rooms")renderRooms();
   }
-  window.addEventListener("hashchange",renderRoute);
+  // Expose the workspace renderer to the original app router.
+  window.FOCUS_UPGRADE_RENDER_ROUTE = renderRoute;
   addNavigation();
   if(extraRoutes.includes(location.hash.replace(/^#/,"").split("/")[0]))renderRoute();
 })();
