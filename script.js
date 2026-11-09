@@ -345,6 +345,9 @@
     const hash = currentRoute();
     const [base, param] = hash.split("/");
 
+    // These routes belong to upgrade.js. Let that router render them.
+    if (["tasks", "music", "rooms"].includes(base)) return;
+
     document.querySelectorAll(".nav-item, .bottom-nav-item").forEach((el) => {
       el.classList.toggle("active", el.dataset.route === base);
     });
