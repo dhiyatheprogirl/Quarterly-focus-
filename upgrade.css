@@ -107,3 +107,11 @@ input,select,textarea {
  .upgrade-form .btn { width:100%; }
  .upgrade-card { padding:17px; }
 }
+
+/* New navigation icons are inline SVGs rather than CSS masks. */
+.upgrade-icon { background:none; opacity:1; }
+.upgrade-icon svg { display:block; width:16px; height:16px; }
+@media(max-width:860px) {
+  .bottom-nav { overflow-x:auto; justify-content:flex-start; }
+  .bottom-nav-item { min-width:58px; }
+}
